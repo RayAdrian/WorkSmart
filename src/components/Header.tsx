@@ -73,16 +73,28 @@ const Header: React.FC<HeaderProps> = ({ username, email, onLogout }) => {
                     )}
                   </Menu.Item>
                   <Menu.Item>
-                    {({ active }: { active: boolean }) => (
-                      <a
-                        href="#"
-                        className={`${
-                          active ? "bg-gray-50" : ""
-                        } block px-4 py-2 text-sm text-red-600`}
-                      >
-                        {onLogout ? "Sign out" : "Login"}
-                      </a>
-                    )}
+                    {({ active }: { active: boolean }) =>
+                      onLogout ? (
+                        <button
+                          type="button"
+                          onClick={onLogout}
+                          className={`${
+                            active ? "bg-gray-50" : ""
+                          } w-full text-left block px-4 py-2 text-sm text-red-600`}
+                        >
+                          Sign out
+                        </button>
+                      ) : (
+                        <a
+                          href="#"
+                          className={`${
+                            active ? "bg-gray-50" : ""
+                          } block px-4 py-2 text-sm text-red-600`}
+                        >
+                          Login
+                        </a>
+                      )
+                    }
                   </Menu.Item>
                 </Menu.Items>
               </Transition>
