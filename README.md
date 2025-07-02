@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Technical Documentation
+
+- **Architecture Diagram and Technical Decisions**
+  - _See: `/docs/architecture-diagram.png` and `/docs/technical-decisions.md` (to be provided)_
+- **Mock GenAI Implementation Approach and Details**
+  - _See: `/docs/genai-implementation.md` (to be provided)_
+
+## Product Documentation
+
+- **User Guide**
+  - _Includes screenshots and workflow examples. See: `/docs/user-guide.md` (to be provided)_
+- **Product Vision Document**
+  - _A 2-3 page document covering:_
+    - Problem definition and user needs
+    - Solution approach and key features
+    - GenAI feature design and benefits
+  - _See: `/docs/product-vision.md` (to be provided)_
