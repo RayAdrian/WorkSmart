@@ -65,7 +65,7 @@ const Sidebar = () => {
                 <span className="text-white font-bold text-sm">M</span>
               </div>
               <span className="ml-2 text-lg font-semibold text-gray-900">
-                Meridian
+                WorkSmart
               </span>
             </div>
             <button

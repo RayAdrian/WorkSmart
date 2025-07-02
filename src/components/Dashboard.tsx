@@ -160,7 +160,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-2">
-          Welcome to Meridian Time Management System
+          Welcome to WorkSmart Time Management System
         </p>
       </div>
 
