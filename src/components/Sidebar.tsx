@@ -55,22 +55,14 @@ const Sidebar = () => {
       <div
         className={`${
           open ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 fixed md:static inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out`}
+        } md:translate-x-0 fixed md:static inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out h-screen`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">M</span>
-              </div>
-              <span className="ml-2 text-lg font-semibold text-gray-900">
-                WorkSmart
-              </span>
-            </div>
+          {/* Top section: only mobile close button now */}
+          <div className="flex items-center justify-end h-16 px-4 border-b border-gray-200 md:hidden">
             <button
               onClick={() => setOpen(false)}
-              className="md:hidden p-1 rounded-md text-gray-400 hover:text-gray-500"
+              className="p-1 rounded-md text-gray-400 hover:text-gray-500"
             >
               <svg
                 className="h-6 w-6"

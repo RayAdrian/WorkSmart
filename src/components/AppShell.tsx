@@ -15,12 +15,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       {!hideNav && <Header username={username} onLogout={logout} />}
-      <div className="flex">
+      <div className="flex h-screen">
         {!hideNav && <Sidebar />}
         <main
           className={
             !hideNav
-              ? "flex-1 pt-4 pb-8 px-2 sm:px-4 md:pl-64 transition-all duration-200"
+              ? "flex-1 pt-12 pb-8 px-2 sm:px-4 md:px-32 transition-all duration-200 overflow-y-auto"
               : "w-full"
           }
         >

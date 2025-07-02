@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Global input field padding */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="file"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+select,
+textarea {
+  padding: 0.75rem 1rem !important;
+}
