@@ -46,6 +46,20 @@ export default function DocumentManagement() {
   const [selectedType, setSelectedType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [analyzingId, setAnalyzingId] = useState<number | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<
+    Record<number, Record<string, unknown>>
+  >({});
+  const [suggestingId, setSuggestingId] = useState<number | null>(null);
+  const [suggestionResult, setSuggestionResult] = useState<
+    Record<number, string | null>
+  >({});
+
+  const [nlsQuery, setNlsQuery] = useState("");
+  const [nlsResults, setNlsResults] = useState<Document[] | null>(null);
+  const [nlsLoading, setNlsLoading] = useState(false);
+  const [nlsActive, setNlsActive] = useState(false);
+
   useEffect(() => {
     fetch("/api/documents")
       .then((res) => res.json())
@@ -151,6 +165,67 @@ export default function DocumentManagement() {
     ),
   ];
 
+  const handleAnalyze = async (docId: number) => {
+    setAnalyzingId(docId);
+    setAnalysisResult((prev) => {
+      const newResult = { ...prev };
+      delete newResult[docId];
+      return newResult;
+    });
+    const res = await fetch("/api/genai/analyze-document", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentId: docId }),
+    });
+    setAnalyzingId(null);
+    if (res.ok) {
+      const data = await res.json();
+      setAnalysisResult((prev) => ({ ...prev, [docId]: data.extractedInfo }));
+    }
+  };
+
+  const handleSuggest = async (docId: number) => {
+    setSuggestingId(docId);
+    setSuggestionResult((prev) => {
+      const newResult = { ...prev };
+      delete newResult[docId];
+      return newResult;
+    });
+    const res = await fetch("/api/genai/suggest-workflow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentId: docId }),
+    });
+    setSuggestingId(null);
+    if (res.ok) {
+      const data = await res.json();
+      setSuggestionResult((prev) => ({ ...prev, [docId]: data.suggestion }));
+    }
+  };
+
+  const handleNlsSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nlsQuery.trim()) return;
+    setNlsLoading(true);
+    setNlsActive(true);
+    const res = await fetch("/api/genai/nls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: nlsQuery, context: "documents" }),
+    });
+    setNlsLoading(false);
+    if (res.ok) {
+      const data = await res.json();
+      setNlsResults(data.results);
+    }
+  };
+
+  const handleClearNls = () => {
+    setNlsQuery("");
+    setNlsResults(null);
+    setNlsActive(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -161,6 +236,34 @@ export default function DocumentManagement() {
         <p className="text-gray-600 mt-2">
           Upload and manage procurement documents with time tracking integration
         </p>
+      </div>
+
+      {/* NLS Search Bar */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center gap-4">
+        <form onSubmit={handleNlsSearch} className="flex-1 flex gap-3">
+          <input
+            type="text"
+            value={nlsQuery}
+            onChange={(e) => setNlsQuery(e.target.value)}
+            placeholder="Ask in natural language, e.g. 'show all approved purchase orders from last month'"
+            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400 px-3 py-2"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition"
+            disabled={nlsLoading}
+          >
+            {nlsLoading ? "Searching..." : "Search"}
+          </button>
+        </form>
+        {nlsActive && (
+          <button
+            onClick={handleClearNls}
+            className="text-sm text-gray-600 hover:underline mt-2 md:mt-0"
+          >
+            Clear NLS Filter
+          </button>
+        )}
       </div>
 
       {/* Upload Form */}
@@ -318,7 +421,13 @@ export default function DocumentManagement() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
-            Documents ({filteredDocuments.length})
+            Documents (
+            {nlsActive
+              ? nlsResults
+                ? nlsResults.length
+                : 0
+              : filteredDocuments.length}
+            )
           </h2>
         </div>
         <div className="overflow-x-auto">
@@ -349,60 +458,132 @@ export default function DocumentManagement() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredDocuments.map((doc) => (
-                <tr key={doc.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {doc.filePath.split("/").pop()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {doc.type}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        doc.status
-                      )}`}
-                    >
-                      {getStatusIcon(doc.status)}
-                      <span className="ml-1">
-                        <select
-                          value={doc.status}
-                          onChange={(e) =>
-                            handleStatusChange(doc.id, e.target.value)
-                          }
-                          className="bg-transparent border-none focus:ring-0 focus:outline-none text-xs font-medium text-black"
-                          disabled={statusUpdating === doc.id}
-                        >
-                          {statuses.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                      </span>
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {doc.user?.username || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {doc.checkIn
-                      ? `#${doc.checkIn.tag} (${doc.checkIn.date})`
-                      : "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(doc.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <a
-                      href={`/api/documents/${doc.id}`}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                      download
-                    >
-                      Download
-                    </a>
+              {(nlsActive ? nlsResults || [] : filteredDocuments).length ===
+                0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-gray-500">
+                    {nlsLoading ? "Searching..." : "No results found."}
                   </td>
                 </tr>
+              )}
+              {(nlsActive ? nlsResults || [] : filteredDocuments).map((doc) => (
+                <>
+                  <tr key={doc.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {doc.filePath.split("/").pop()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {doc.type}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                          doc.status
+                        )}`}
+                      >
+                        {getStatusIcon(doc.status)}
+                        <span className="ml-1">
+                          <select
+                            value={doc.status}
+                            onChange={(e) =>
+                              handleStatusChange(doc.id, e.target.value)
+                            }
+                            className="bg-transparent border-none focus:ring-0 focus:outline-none text-xs font-medium text-black"
+                            disabled={statusUpdating === doc.id}
+                          >
+                            {statuses.map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
+                        </span>
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {doc.user?.username || "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {doc.checkIn
+                        ? `#${doc.checkIn.tag} (${doc.checkIn.date})`
+                        : "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(doc.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <a
+                        href={`/api/documents/${doc.id}`}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                        download
+                      >
+                        Download
+                      </a>
+                      <button
+                        className="text-purple-600 hover:underline mr-2"
+                        onClick={() => handleAnalyze(doc.id)}
+                        disabled={analyzingId === doc.id}
+                      >
+                        {analyzingId === doc.id ? "Analyzing..." : "Analyze"}
+                      </button>
+                      <button
+                        className="text-green-600 hover:underline"
+                        onClick={() => handleSuggest(doc.id)}
+                        disabled={suggestingId === doc.id}
+                      >
+                        {suggestingId === doc.id
+                          ? "Suggesting..."
+                          : "Suggest Next Step"}
+                      </button>
+                    </td>
+                  </tr>
+                  {/* Inline analysis/suggestion results */}
+                  {(analysisResult[doc.id] || suggestionResult[doc.id]) && (
+                    <tr key={doc.id + "-genai"}>
+                      <td
+                        colSpan={7}
+                        className="bg-gray-50 px-6 py-4 text-sm text-gray-700"
+                      >
+                        {analysisResult[doc.id] && (
+                          <div className="mb-2">
+                            <strong>Extracted Info:</strong>
+                            <ul className="list-disc ml-6">
+                              {Object.entries(analysisResult[doc.id]).map(
+                                ([key, value]) =>
+                                  Array.isArray(value) ? (
+                                    <li key={key}>
+                                      {key}:
+                                      <ul className="list-disc ml-6">
+                                        {value.map((item, idx) => (
+                                          <li key={idx}>
+                                            {Object.entries(item)
+                                              .map(
+                                                ([k, v]) => `${k}: ${String(v)}`
+                                              )
+                                              .join(", ")}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </li>
+                                  ) : (
+                                    <li key={key}>
+                                      {key}: {String(value)}
+                                    </li>
+                                  )
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                        {suggestionResult[doc.id] && (
+                          <div>
+                            <strong>Workflow Suggestion:</strong>{" "}
+                            {suggestionResult[doc.id]}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>

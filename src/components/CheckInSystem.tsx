@@ -38,6 +38,11 @@ export default function CheckInSystem() {
   const [suggestedTag, setSuggestedTag] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [nlsQuery, setNlsQuery] = useState("");
+  const [nlsResults, setNlsResults] = useState<CheckIn[] | null>(null);
+  const [nlsLoading, setNlsLoading] = useState(false);
+  const [nlsActive, setNlsActive] = useState(false);
+
   useEffect(() => {
     fetch("/api/checkins")
       .then((res) => res.json())
@@ -184,6 +189,29 @@ export default function CheckInSystem() {
   const tags = [...new Set(checkIns.map((c) => c.tag))];
   const dates = [...new Set(checkIns.map((c) => c.date))];
 
+  const handleNlsSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nlsQuery.trim()) return;
+    setNlsLoading(true);
+    setNlsActive(true);
+    const res = await fetch("/api/genai/nls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: nlsQuery, context: "checkins" }),
+    });
+    setNlsLoading(false);
+    if (res.ok) {
+      const data = await res.json();
+      setNlsResults(data.results);
+    }
+  };
+
+  const handleClearNls = () => {
+    setNlsQuery("");
+    setNlsResults(null);
+    setNlsActive(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -192,6 +220,34 @@ export default function CheckInSystem() {
         <p className="text-gray-600 mt-2">
           Track your daily work activities and time spent on tasks
         </p>
+      </div>
+
+      {/* NLS Search Bar */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center gap-4">
+        <form onSubmit={handleNlsSearch} className="flex-1 flex gap-3">
+          <input
+            type="text"
+            value={nlsQuery}
+            onChange={(e) => setNlsQuery(e.target.value)}
+            placeholder="Ask in natural language, e.g. 'show all procurement check-ins from last month'"
+            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400 px-3 py-2"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition"
+            disabled={nlsLoading}
+          >
+            {nlsLoading ? "Searching..." : "Search"}
+          </button>
+        </form>
+        {nlsActive && (
+          <button
+            onClick={handleClearNls}
+            className="text-sm text-gray-600 hover:underline mt-2 md:mt-0"
+          >
+            Clear NLS Filter
+          </button>
+        )}
       </div>
 
       {/* Time Entry Form */}
@@ -309,12 +365,30 @@ export default function CheckInSystem() {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
-              Check-ins ({filteredCheckIns.length})
+              Check-ins (
+              {nlsActive
+                ? nlsResults
+                  ? nlsResults.length
+                  : 0
+                : filteredCheckIns.length}
+              )
             </h2>
             <div className="text-sm text-gray-500">
               Showing {startIndex + 1}-
-              {Math.min(startIndex + itemsPerPage, filteredCheckIns.length)} of{" "}
-              {filteredCheckIns.length}
+              {Math.min(
+                startIndex + itemsPerPage,
+                nlsActive
+                  ? nlsResults
+                    ? nlsResults.length
+                    : 0
+                  : filteredCheckIns.length
+              )}{" "}
+              of{" "}
+              {nlsActive
+                ? nlsResults
+                  ? nlsResults.length
+                  : 0
+                : filteredCheckIns.length}
             </div>
           </div>
         </div>
@@ -347,126 +421,139 @@ export default function CheckInSystem() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedCheckIns.map((checkIn) => (
-                <tr key={checkIn.id} className="hover:bg-gray-50">
-                  {editingId === checkIn.id ? (
-                    // Edit Form
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={editForm?.hours || 0}
-                          onChange={(e) =>
-                            setEditForm((prev) =>
-                              prev
-                                ? { ...prev, hours: parseFloat(e.target.value) }
-                                : null
-                            )
-                          }
-                          className="w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="text"
-                          value={editForm?.tag || ""}
-                          onChange={(e) =>
-                            setEditForm((prev) =>
-                              prev ? { ...prev, tag: e.target.value } : null
-                            )
-                          }
-                          className="w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
-                        />
-                      </td>
-                      <td className="px-6 py-4">
-                        <input
-                          type="text"
-                          value={editForm?.activities || ""}
-                          onChange={(e) =>
-                            setEditForm((prev) =>
-                              prev
-                                ? { ...prev, activities: e.target.value }
-                                : null
-                            )
-                          }
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="date"
-                          value={editForm?.date || ""}
-                          onChange={(e) =>
-                            setEditForm((prev) =>
-                              prev ? { ...prev, date: e.target.value } : null
-                            )
-                          }
-                          className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {checkIn.user?.username}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {checkIn.department}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={handleUpdate}
-                          className="text-green-600 hover:text-green-900 mr-3"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="text-gray-600 hover:text-gray-900"
-                        >
-                          Cancel
-                        </button>
-                      </td>
-                    </>
-                  ) : (
-                    // Display Mode
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {checkIn.hours} hrs
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          #{checkIn.tag}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {checkIn.activities}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {checkIn.date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {checkIn.user?.username}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {checkIn.department}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(checkIn)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(checkIn.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </>
-                  )}
+              {(nlsActive ? nlsResults || [] : paginatedCheckIns).length ===
+                0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-gray-500">
+                    {nlsLoading ? "Searching..." : "No results found."}
+                  </td>
                 </tr>
-              ))}
+              )}
+              {(nlsActive ? nlsResults || [] : paginatedCheckIns).map(
+                (checkIn) => (
+                  <tr key={checkIn.id} className="hover:bg-gray-50">
+                    {editingId === checkIn.id ? (
+                      // Edit Form
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={editForm?.hours || 0}
+                            onChange={(e) =>
+                              setEditForm((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      hours: parseFloat(e.target.value),
+                                    }
+                                  : null
+                              )
+                            }
+                            className="w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="text"
+                            value={editForm?.tag || ""}
+                            onChange={(e) =>
+                              setEditForm((prev) =>
+                                prev ? { ...prev, tag: e.target.value } : null
+                              )
+                            }
+                            className="w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <input
+                            type="text"
+                            value={editForm?.activities || ""}
+                            onChange={(e) =>
+                              setEditForm((prev) =>
+                                prev
+                                  ? { ...prev, activities: e.target.value }
+                                  : null
+                              )
+                            }
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="date"
+                            value={editForm?.date || ""}
+                            onChange={(e) =>
+                              setEditForm((prev) =>
+                                prev ? { ...prev, date: e.target.value } : null
+                              )
+                            }
+                            className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {checkIn.user?.username}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {checkIn.department}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={handleUpdate}
+                            className="text-green-600 hover:text-green-900 mr-3"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="text-gray-600 hover:text-gray-900"
+                          >
+                            Cancel
+                          </button>
+                        </td>
+                      </>
+                    ) : (
+                      // Display Mode
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {checkIn.hours} hrs
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            #{checkIn.tag}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {checkIn.activities}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {checkIn.date}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {checkIn.user?.username}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {checkIn.department}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => handleEdit(checkIn)}
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(checkIn.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
         </div>

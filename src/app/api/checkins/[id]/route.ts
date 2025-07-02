@@ -2,14 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: Request, context: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const id = Number(params.id);
+  const id = Number(context.params.id);
   const checkIn = await prisma.checkIn.findUnique({ where: { id } });
   if (!checkIn)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -22,12 +19,12 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   const user = await getCurrentUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const id = Number(params.id);
+  const id = Number(context.params.id);
   const checkIn = await prisma.checkIn.findUnique({ where: { id } });
   if (!checkIn)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
