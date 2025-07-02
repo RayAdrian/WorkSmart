@@ -5,9 +5,9 @@ import { promises as fs } from "fs";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = Number(params.id);
+  const id = Number((await params).id);
   const data = await req.json();
   const document = await prisma.document.update({ where: { id }, data });
   return NextResponse.json(document);
@@ -17,7 +17,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const id = Number(params.id);
+  const id = Number((await params).id);
   const document = await prisma.document.delete({ where: { id } });
   return NextResponse.json(document);
 }
@@ -26,7 +26,7 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const id = Number(params.id);
+  const id = Number((await params).id);
   const document = await prisma.document.findUnique({ where: { id } });
   if (!document) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -52,7 +52,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const id = Number(params.id);
+  const id = Number((await params).id);
   const { status, checkInId } = await req.json();
   const data: Record<string, unknown> = {};
   if (status) data.status = status;

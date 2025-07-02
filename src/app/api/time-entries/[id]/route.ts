@@ -30,9 +30,9 @@ let timeEntries = [
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = parseInt(params.id);
+  const id = parseInt((await params).id);
   const body = await request.json();
   const entryIndex = timeEntries.findIndex((entry) => entry.id === id);
 
@@ -53,9 +53,9 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = parseInt(params.id);
+  const id = parseInt((await params).id);
   const entryIndex = timeEntries.findIndex((entry) => entry.id === id);
 
   if (entryIndex === -1) {
