@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 // Mock database
-let timeEntries = [
+const timeEntries = [
   {
     id: 1,
     time: "2 hrs",
