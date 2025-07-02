@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   PlusIcon,
   PencilIcon,
@@ -35,6 +35,9 @@ export default function CheckInSystem() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  const [suggestedTag, setSuggestedTag] = useState<string | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     fetch("/api/checkins")
       .then((res) => res.json())
@@ -47,6 +50,42 @@ export default function CheckInSystem() {
         }
       });
   }, []);
+
+  // Smart Categorization: fetch suggested tag as user types
+  useEffect(() => {
+    if (!timeEntry.trim()) {
+      setSuggestedTag(null);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetch("/api/genai/categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: timeEntry }),
+      })
+        .then((res) => res.json())
+        .then((data) => setSuggestedTag(data.tag || null));
+    }, 300);
+    // Cleanup
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [timeEntry]);
+
+  const handleInsertTag = () => {
+    // Insert or replace #tag in the input
+    const tagPattern = /#\w+/g;
+    let newEntry = timeEntry;
+    if (suggestedTag) {
+      if (tagPattern.test(timeEntry)) {
+        newEntry = timeEntry.replace(tagPattern, `#${suggestedTag}`);
+      } else {
+        newEntry = timeEntry.trim() + ` #${suggestedTag}`;
+      }
+      setTimeEntry(newEntry.trim());
+    }
+  };
 
   const parseTimeEntry = (
     entry: string
@@ -184,6 +223,18 @@ export default function CheckInSystem() {
                 Add Entry
               </button>
             </div>
+            {suggestedTag && (
+              <div className="mt-2 text-sm text-gray-600">
+                Suggested Tag:{" "}
+                <button
+                  type="button"
+                  onClick={handleInsertTag}
+                  className="text-blue-600 hover:underline"
+                >
+                  #{suggestedTag}
+                </button>
+              </div>
+            )}
           </div>
         </form>
       </div>
