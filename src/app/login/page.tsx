@@ -15,6 +15,7 @@ export default function LoginPage() {
     if (username && password) {
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("username", username);
+      document.cookie = "auth=1; path=/";
       router.push("/dashboard");
     } else {
       setError("Please enter username and password");

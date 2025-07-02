@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("username");
+    document.cookie = "auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     setIsLoggedIn(false);
     setUsername(null);
     router.push("/login");
