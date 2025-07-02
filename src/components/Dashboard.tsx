@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -32,20 +33,22 @@ ChartJS.register(
   Legend
 );
 
+interface CheckIn {
+  id: number;
+  userId: number;
+  hours: number;
+  tag: string;
+  activities: string;
+  date: string;
+  department: string;
+  user?: { username: string };
+}
+
 interface DashboardStats {
   totalHours: number;
   totalDocuments: number;
   activeUsers: number;
   productivityScore: number;
-}
-
-interface RecentCheckIn {
-  id: string;
-  hours: number;
-  tag: string;
-  activities: string;
-  date: string;
-  user: string;
 }
 
 export default function Dashboard() {
@@ -55,75 +58,87 @@ export default function Dashboard() {
     activeUsers: 0,
     productivityScore: 0,
   });
-
-  const [recentCheckIns, setRecentCheckIns] = useState<RecentCheckIn[]>([]);
+  const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
+  const [timeChartData, setTimeChartData] = useState<any>(null);
+  const [tagChartData, setTagChartData] = useState<any>(null);
 
   useEffect(() => {
-    // Mock data - in real app, this would come from API
-    setStats({
-      totalHours: 1247.5,
-      totalDocuments: 89,
-      activeUsers: 67,
-      productivityScore: 87,
-    });
-
-    setRecentCheckIns([
-      {
-        id: "1",
-        hours: 5.5,
-        tag: "project-x",
-        activities: "fix login issue and implement user authentication",
-        date: "2024-01-15",
-        user: "John Doe",
-      },
-      {
-        id: "2",
-        hours: 2.0,
-        tag: "procurement",
-        activities: "vendor negotiation and contract review",
-        date: "2024-01-15",
-        user: "Jane Smith",
-      },
-      {
-        id: "3",
-        hours: 3.5,
-        tag: "marketing",
-        activities: "campaign design and content creation",
-        date: "2024-01-15",
-        user: "Mike Johnson",
-      },
-    ]);
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => {
+        setStats({
+          totalHours: data.totalHours,
+          totalDocuments: data.totalDocuments,
+          activeUsers: data.activeUsers,
+          productivityScore: data.productivityScore,
+        });
+        // --- Charts ---
+        const checkIns: CheckIn[] = data.checkIns;
+        // Line chart: hours per day (last 7 days)
+        const days: string[] = [];
+        const hoursPerDay: number[] = [];
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const label = d.toLocaleDateString(undefined, { weekday: "short" });
+          days.push(label);
+          const dayStr = d.toISOString().split("T")[0];
+          const total = checkIns
+            .filter((c) => c.date.startsWith(dayStr))
+            .reduce((sum, c) => sum + c.hours, 0);
+          hoursPerDay.push(total);
+        }
+        setTimeChartData({
+          labels: days,
+          datasets: [
+            {
+              label: "Hours Logged",
+              data: hoursPerDay,
+              borderColor: "rgb(59, 130, 246)",
+              backgroundColor: "rgba(59, 130, 246, 0.1)",
+              tension: 0.4,
+            },
+          ],
+        });
+        // Bar chart: hours by tag (top 5 tags)
+        const tagTotals: Record<string, number> = {};
+        for (const c of checkIns) {
+          tagTotals[c.tag] = (tagTotals[c.tag] || 0) + c.hours;
+        }
+        const sortedTags = Object.entries(tagTotals)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5);
+        setTagChartData({
+          labels: sortedTags.map(([tag]) => tag),
+          datasets: [
+            {
+              label: "Hours by Tag",
+              data: sortedTags.map(([, hours]) => hours),
+              backgroundColor: [
+                "rgba(59, 130, 246, 0.8)",
+                "rgba(16, 185, 129, 0.8)",
+                "rgba(245, 158, 11, 0.8)",
+                "rgba(239, 68, 68, 0.8)",
+                "rgba(139, 92, 246, 0.8)",
+              ],
+            },
+          ],
+        });
+      });
+    fetch("/api/checkins")
+      .then((res) => res.json())
+      .then((checkIns: CheckIn[]) => {
+        if (Array.isArray(checkIns)) {
+          const sorted = [...checkIns].sort((a, b) =>
+            b.date.localeCompare(a.date)
+          );
+          setRecentCheckIns(sorted.slice(0, 3));
+        } else {
+          setRecentCheckIns([]);
+        }
+      });
   }, []);
-
-  const timeChartData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Hours Logged",
-        data: [8.5, 7.2, 9.1, 6.8, 8.9, 4.2, 2.1],
-        borderColor: "rgb(59, 130, 246)",
-        backgroundColor: "rgba(59, 130, 246, 0.1)",
-        tension: 0.4,
-      },
-    ],
-  };
-
-  const tagChartData = {
-    labels: ["Project-X", "Procurement", "Marketing", "HR", "Finance"],
-    datasets: [
-      {
-        label: "Hours by Tag",
-        data: [45, 32, 28, 15, 12],
-        backgroundColor: [
-          "rgba(59, 130, 246, 0.8)",
-          "rgba(16, 185, 129, 0.8)",
-          "rgba(245, 158, 11, 0.8)",
-          "rgba(239, 68, 68, 0.8)",
-          "rgba(139, 92, 246, 0.8)",
-        ],
-      },
-    ],
-  };
 
   const chartOptions = {
     responsive: true,
@@ -214,14 +229,16 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Weekly Time Tracking
           </h3>
-          <Line data={timeChartData} options={chartOptions} />
+          {timeChartData && (
+            <Line data={timeChartData} options={chartOptions} />
+          )}
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Hours by Tag
           </h3>
-          <Bar data={tagChartData} options={chartOptions} />
+          {tagChartData && <Bar data={tagChartData} options={chartOptions} />}
         </div>
       </div>
 
@@ -260,7 +277,7 @@ export default function Dashboard() {
                         <CalendarIcon className="h-4 w-4 mr-1" />
                         {checkIn.date}
                       </span>
-                      <span>{checkIn.user}</span>
+                      <span>{checkIn.user?.username}</span>
                     </div>
                   </div>
                 </div>

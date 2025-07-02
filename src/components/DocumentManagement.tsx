@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  DocumentIcon,
   PlusIcon,
-  PencilIcon,
-  TrashIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   ClockIcon,
@@ -15,25 +12,34 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface Document {
-  id: string;
-  name: string;
+  id: number;
+  userId: number;
+  filePath: string;
   type: string;
-  size: string;
-  status: "pending" | "in-review" | "approved" | "rejected";
-  uploadedBy: string;
-  uploadedDate: string;
-  linkedTimeEntries: string[];
-  description: string;
-  tags: string[];
+  status: string;
+  createdAt: string;
+  user?: { username: string };
+  checkInId?: number;
+  checkIn?: { id: number; tag: string; date: string; userId: number };
+}
+
+interface CheckIn {
+  id: number;
+  tag: string;
+  date: string;
+  userId: number;
+  user?: { username: string };
 }
 
 export default function DocumentManagement() {
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadDescription, setUploadDescription] = useState("");
-  const [uploadTags, setUploadTags] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Document | null>(null);
+  const [uploadType, setUploadType] = useState("purchase-order");
+  const [uploadStatus, setUploadStatus] = useState("pending");
+  const [uploadCheckInId, setUploadCheckInId] = useState<number | "">("");
+  const [uploading, setUploading] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState<number | null>(null);
 
   // Filters
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -41,131 +47,57 @@ export default function DocumentManagement() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    // Mock data - in real app, this would come from API
-    const mockDocuments: Document[] = [
-      {
-        id: "1",
-        name: "Purchase Order - Vendor ABC.pdf",
-        type: "purchase-order",
-        size: "2.4 MB",
-        status: "approved",
-        uploadedBy: "Jane Smith",
-        uploadedDate: "2024-01-15",
-        linkedTimeEntries: ["1", "2"],
-        description: "Purchase order for office supplies from Vendor ABC",
-        tags: ["procurement", "office-supplies"],
-      },
-      {
-        id: "2",
-        name: "Contract Review - Project X.docx",
-        type: "contract",
-        size: "1.8 MB",
-        status: "in-review",
-        uploadedBy: "John Doe",
-        uploadedDate: "2024-01-14",
-        linkedTimeEntries: ["3"],
-        description: "Contract review document for Project X implementation",
-        tags: ["contract", "project-x"],
-      },
-      {
-        id: "3",
-        name: "Quote Comparison - IT Services.xlsx",
-        type: "quote",
-        size: "3.2 MB",
-        status: "pending",
-        uploadedBy: "Mike Johnson",
-        uploadedDate: "2024-01-13",
-        linkedTimeEntries: [],
-        description: "Comparison of IT service provider quotes",
-        tags: ["it-services", "quotes"],
-      },
-      {
-        id: "4",
-        name: "Requisition Form - Equipment.pdf",
-        type: "requisition",
-        size: "1.1 MB",
-        status: "rejected",
-        uploadedBy: "Sarah Wilson",
-        uploadedDate: "2024-01-12",
-        linkedTimeEntries: ["4"],
-        description: "Equipment requisition form for new office setup",
-        tags: ["equipment", "office-setup"],
-      },
-    ];
-    setDocuments(mockDocuments);
+    fetch("/api/documents")
+      .then((res) => res.json())
+      .then((data) => setDocuments(data));
+    fetch("/api/checkins")
+      .then((res) => res.json())
+      .then((data) => setCheckIns(data));
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
+    if (file) setSelectedFile(file);
   };
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) return;
-
-    const newDocument: Document = {
-      id: Date.now().toString(),
-      name: selectedFile.name,
-      type: getFileType(selectedFile.name),
-      size: formatFileSize(selectedFile.size),
-      status: "pending",
-      uploadedBy: "Current User", // In real app, get from auth
-      uploadedDate: new Date().toISOString().split("T")[0],
-      linkedTimeEntries: [],
-      description: uploadDescription,
-      tags: uploadTags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag),
-    };
-
-    setDocuments((prev) => [newDocument, ...prev]);
-    setSelectedFile(null);
-    setUploadDescription("");
-    setUploadTags("");
-  };
-
-  const getFileType = (filename: string): string => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-    if (ext === "pdf") return "purchase-order";
-    if (ext === "docx" || ext === "doc") return "contract";
-    if (ext === "xlsx" || ext === "xls") return "quote";
-    return "requisition";
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(1)} MB`;
-  };
-
-  const handleEdit = (document: Document) => {
-    setEditingId(document.id);
-    setEditForm({ ...document });
-  };
-
-  const handleUpdate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editForm) return;
-
-    setDocuments((prev) =>
-      prev.map((item) => (item.id === editForm.id ? editForm : item))
-    );
-    setEditingId(null);
-    setEditForm(null);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this document?")) {
-      setDocuments((prev) => prev.filter((item) => item.id !== id));
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("type", uploadType);
+    formData.append("status", uploadStatus);
+    if (uploadCheckInId) formData.append("checkInId", String(uploadCheckInId));
+    const res = await fetch("/api/documents", {
+      method: "POST",
+      body: formData,
+    });
+    setUploading(false);
+    if (res.ok) {
+      const newDoc = await res.json();
+      setDocuments((prev) => [newDoc, ...prev]);
+      setSelectedFile(null);
+      setUploadType("purchase-order");
+      setUploadStatus("pending");
+      setUploadCheckInId("");
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditForm(null);
+  const handleStatusChange = async (id: number, status: string) => {
+    setStatusUpdating(id);
+    const res = await fetch(`/api/documents/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setStatusUpdating(null);
+    if (res.ok) {
+      const updated = await res.json();
+      setDocuments((prev) =>
+        prev.map((doc) => (doc.id === id ? updated : doc))
+      );
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -202,18 +134,22 @@ export default function DocumentManagement() {
       selectedType === "all" || document.type === selectedType;
     const matchesSearch =
       searchQuery === "" ||
-      document.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      document.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      document.tags.some((tag) =>
-        tag.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
+      document.filePath.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      document.type.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesType && matchesSearch;
   });
 
   // Get unique values for filters
   const statuses = ["pending", "in-review", "approved", "rejected"];
-  const types = [...new Set(documents.map((d) => d.type))];
+  const types = [
+    "purchase-order",
+    "quote",
+    "requisition",
+    "contract",
+    ...Array.from(new Set(documents.map((d) => d.type))).filter(
+      (t) => !["purchase-order", "quote", "requisition", "contract"].includes(t)
+    ),
+  ];
 
   return (
     <div className="space-y-6">
@@ -233,7 +169,7 @@ export default function DocumentManagement() {
           Upload Document
         </h2>
         <form onSubmit={handleUpload} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select File
@@ -242,42 +178,75 @@ export default function DocumentManagement() {
                 type="file"
                 onChange={handleFileSelect}
                 accept=".pdf,.docx,.doc,.xlsx,.xls"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
+                required
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tags (comma-separated)
+                Type
               </label>
-              <input
-                type="text"
-                value={uploadTags}
-                onChange={(e) => setUploadTags(e.target.value)}
-                placeholder="procurement, vendor, contract"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
+              <select
+                value={uploadType}
+                onChange={(e) => setUploadType(e.target.value)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+                required
+              >
+                {types.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={uploadStatus}
+                onChange={(e) => setUploadStatus(e.target.value)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+                required
+              >
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Link to Check-in (optional)
+              </label>
+              <select
+                value={uploadCheckInId}
+                onChange={(e) =>
+                  setUploadCheckInId(
+                    e.target.value ? Number(e.target.value) : ""
+                  )
+                }
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+              >
+                <option value="">None</option>
+                {checkIns.map((ci) => (
+                  <option key={ci.id} value={ci.id}>
+                    #{ci.tag} ({ci.date}){" "}
+                    {ci.user?.username ? `by ${ci.user.username}` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              value={uploadDescription}
-              onChange={(e) => setUploadDescription(e.target.value)}
-              rows={3}
-              placeholder="Brief description of the document..."
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex justify-end">
             <button
               type="submit"
-              disabled={!selectedFile}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={uploading}
             >
               <PlusIcon className="h-4 w-4 mr-2" />
-              Upload Document
+              {uploading ? "Uploading..." : "Upload"}
             </button>
           </div>
         </form>
@@ -289,7 +258,6 @@ export default function DocumentManagement() {
           <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
           <FunnelIcon className="h-5 w-5 text-gray-400" />
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
           <div>
@@ -302,32 +270,11 @@ export default function DocumentManagement() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search documents..."
-                className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Search file name or type..."
+                className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
               />
             </div>
           </div>
-
-          {/* Status Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="all">All Statuses</option>
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() +
-                    status.slice(1).replace("-", " ")}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Type Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -336,13 +283,30 @@ export default function DocumentManagement() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
             >
               <option value="all">All Types</option>
               {types.map((type) => (
                 <option key={type} value={type}>
-                  {type.charAt(0).toUpperCase() +
-                    type.slice(1).replace("-", " ")}
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+            >
+              <option value="all">All Statuses</option>
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {status}
                 </option>
               ))}
             </select>
@@ -350,35 +314,34 @@ export default function DocumentManagement() {
         </div>
       </div>
 
-      {/* Documents List */}
+      {/* Document Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             Documents ({filteredDocuments.length})
           </h2>
         </div>
-
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Document
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  File Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Size
+                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Uploaded By
+                  Uploader
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
+                  Linked Check-in
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -386,152 +349,59 @@ export default function DocumentManagement() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredDocuments.map((document) => (
-                <tr key={document.id} className="hover:bg-gray-50">
-                  {editingId === document.id ? (
-                    // Edit Form
-                    <>
-                      <td className="px-6 py-4">
-                        <input
-                          type="text"
-                          value={editForm?.name || ""}
-                          onChange={(e) =>
-                            setEditForm((prev) =>
-                              prev ? { ...prev, name: e.target.value } : null
-                            )
-                          }
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+              {filteredDocuments.map((doc) => (
+                <tr key={doc.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {doc.filePath.split("/").pop()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {doc.type}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                        doc.status
+                      )}`}
+                    >
+                      {getStatusIcon(doc.status)}
+                      <span className="ml-1">
                         <select
-                          value={editForm?.status || "pending"}
+                          value={doc.status}
                           onChange={(e) =>
-                            setEditForm((prev) =>
-                              prev
-                                ? {
-                                    ...prev,
-                                    status: e.target
-                                      .value as Document["status"],
-                                  }
-                                : null
-                            )
+                            handleStatusChange(doc.id, e.target.value)
                           }
-                          className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          className="bg-transparent border-none focus:ring-0 focus:outline-none text-xs font-medium text-black"
+                          disabled={statusUpdating === doc.id}
                         >
                           {statuses.map((status) => (
                             <option key={status} value={status}>
-                              {status.charAt(0).toUpperCase() +
-                                status.slice(1).replace("-", " ")}
+                              {status}
                             </option>
                           ))}
                         </select>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.type}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.size}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.uploadedBy}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.uploadedDate}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={handleUpdate}
-                          className="text-green-600 hover:text-green-900 mr-3"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="text-gray-600 hover:text-gray-900"
-                        >
-                          Cancel
-                        </button>
-                      </td>
-                    </>
-                  ) : (
-                    // Display Mode
-                    <>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <DocumentIcon className="h-8 w-8 text-gray-400 mr-3" />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {document.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {document.description}
-                            </div>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {document.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {getStatusIcon(document.status)}
-                          <span
-                            className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                              document.status
-                            )}`}
-                          >
-                            {document.status.charAt(0).toUpperCase() +
-                              document.status.slice(1).replace("-", " ")}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.type.charAt(0).toUpperCase() +
-                          document.type.slice(1).replace("-", " ")}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.size}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.uploadedBy}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {document.uploadedDate}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleEdit(document)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(document.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                          {document.linkedTimeEntries.length > 0 && (
-                            <div className="flex items-center text-gray-500">
-                              <ClockIcon className="h-4 w-4 mr-1" />
-                              <span className="text-xs">
-                                {document.linkedTimeEntries.length}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </>
-                  )}
+                      </span>
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {doc.user?.username || "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {doc.checkIn
+                      ? `#${doc.checkIn.tag} (${doc.checkIn.date})`
+                      : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {new Date(doc.createdAt).toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <a
+                      href={`/api/documents/${doc.id}`}
+                      className="text-blue-600 hover:text-blue-900 mr-3"
+                      download
+                    >
+                      Download
+                    </a>
+                  </td>
                 </tr>
               ))}
             </tbody>

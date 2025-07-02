@@ -3,50 +3,36 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Login failed");
-      }
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, email, password }),
+    });
+    if (res.ok) {
       router.push("/dashboard");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Login failed");
-      }
+    } else {
+      const err = await res.json();
+      setError(err.error || "Registration failed");
     }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <form
-        onSubmit={handleLogin}
+        onSubmit={handleRegister}
         className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm space-y-6"
       >
-        <div className="flex flex-col items-center mb-2">
-          <img
-            src="/logo.svg"
-            alt="WorkSmart Logo"
-            className="h-10 w-10 mb-2"
-          />
-          <span className="text-xl font-bold text-blue-700">WorkSmart</span>
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Login</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Register</h1>
         {error && <div className="text-red-500 text-sm">{error}</div>}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -58,6 +44,17 @@ export default function LoginPage() {
             onChange={(e) => setUsername(e.target.value)}
             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             autoFocus
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
         <div>
@@ -75,14 +72,12 @@ export default function LoginPage() {
           type="submit"
           className="w-full py-2 px-4 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition"
         >
-          Login
+          Register
         </button>
-        <div className="w-full text-sm text-center mt-2">
-          <a href="/register" className="text-blue-600 hover:underline mr-4">
-            Register
-          </a>
-          <a href="/forgot" className="text-blue-600 hover:underline">
-            Forgot Password?
+        <div className="text-sm text-center mt-2">
+          Already have an account?{" "}
+          <a href="/login" className="text-blue-600 hover:underline">
+            Login
           </a>
         </div>
       </form>

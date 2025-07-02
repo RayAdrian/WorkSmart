@@ -10,19 +10,20 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface CheckIn {
-  id: string;
+  id: number;
+  userId: number;
   hours: number;
   tag: string;
   activities: string;
   date: string;
-  user: string;
   department: string;
+  user?: { username: string };
 }
 
 export default function CheckInSystem() {
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [timeEntry, setTimeEntry] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CheckIn | null>(null);
 
   // Filters
@@ -35,91 +36,52 @@ export default function CheckInSystem() {
   const itemsPerPage = 20;
 
   useEffect(() => {
-    // Mock data - in real app, this would come from API
-    const mockCheckIns: CheckIn[] = [
-      {
-        id: "1",
-        hours: 5.5,
-        tag: "project-x",
-        activities: "fix login issue and implement user authentication",
-        date: "2024-01-15",
-        user: "John Doe",
-        department: "Engineering",
-      },
-      {
-        id: "2",
-        hours: 2.0,
-        tag: "procurement",
-        activities: "vendor negotiation and contract review",
-        date: "2024-01-15",
-        user: "Jane Smith",
-        department: "Procurement",
-      },
-      {
-        id: "3",
-        hours: 3.5,
-        tag: "marketing",
-        activities: "campaign design and content creation",
-        date: "2024-01-15",
-        user: "Mike Johnson",
-        department: "Marketing",
-      },
-      {
-        id: "4",
-        hours: 4.0,
-        tag: "project-x",
-        activities: "code review and bug fixes",
-        date: "2024-01-14",
-        user: "Sarah Wilson",
-        department: "Engineering",
-      },
-      {
-        id: "5",
-        hours: 1.5,
-        tag: "hr",
-        activities: "interview scheduling and candidate review",
-        date: "2024-01-14",
-        user: "Lisa Brown",
-        department: "HR",
-      },
-    ];
-    setCheckIns(mockCheckIns);
+    fetch("/api/checkins")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCheckIns(data);
+        } else {
+          setCheckIns([]);
+          console.error("Failed to load check-ins:", data);
+        }
+      });
   }, []);
 
-  const parseTimeEntry = (entry: string): Omit<CheckIn, "id"> | null => {
+  const parseTimeEntry = (
+    entry: string
+  ): Omit<CheckIn, "id" | "userId"> | null => {
     // Format: <number> [hr | hrs] #<tag> <activities>
     const regex = /^(\d+(?:\.\d+)?)\s*(hr|hrs)\s*#(\w+)\s+(.+)$/i;
     const match = entry.match(regex);
-
     if (!match) return null;
-
     return {
       hours: parseFloat(match[1]),
       tag: match[3],
       activities: match[4].trim(),
       date: new Date().toISOString().split("T")[0],
-      user: "Current User", // In real app, get from auth
       department: "Engineering", // In real app, get from user profile
     };
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!timeEntry.trim()) return;
-
     const parsed = parseTimeEntry(timeEntry);
     if (!parsed) {
       alert("Invalid format. Use: <number> hrs #<tag> <activities>");
       return;
     }
-
-    const newCheckIn: CheckIn = {
-      id: Date.now().toString(),
-      ...parsed,
-    };
-
-    setCheckIns((prev) => [newCheckIn, ...prev]);
-    setTimeEntry("");
+    const res = await fetch("/api/checkins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed),
+    });
+    if (res.ok) {
+      const newCheckIn = await res.json();
+      setCheckIns((prev) => [newCheckIn, ...prev]);
+      setTimeEntry("");
+    }
   };
 
   const handleEdit = (checkIn: CheckIn) => {
@@ -127,20 +89,30 @@ export default function CheckInSystem() {
     setEditForm({ ...checkIn });
   };
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editForm) return;
-
-    setCheckIns((prev) =>
-      prev.map((item) => (item.id === editForm.id ? editForm : item))
-    );
-    setEditingId(null);
-    setEditForm(null);
+    const res = await fetch(`/api/checkins/${editForm.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setCheckIns((prev) =>
+        prev.map((item) => (item.id === updated.id ? updated : item))
+      );
+      setEditingId(null);
+      setEditForm(null);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this check-in?")) {
-      setCheckIns((prev) => prev.filter((item) => item.id !== id));
+      const res = await fetch(`/api/checkins/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setCheckIns((prev) => prev.filter((item) => item.id !== id));
+      }
     }
   };
 
@@ -202,7 +174,7 @@ export default function CheckInSystem() {
                 value={timeEntry}
                 onChange={(e) => setTimeEntry(e.target.value)}
                 placeholder="e.g., 2.5 hrs #procurement vendor meeting"
-                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
               />
               <button
                 type="submit"
@@ -236,7 +208,7 @@ export default function CheckInSystem() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search activities or tags..."
-                className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
               />
             </div>
           </div>
@@ -249,7 +221,7 @@ export default function CheckInSystem() {
             <select
               value={selectedTag}
               onChange={(e) => setSelectedTag(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
             >
               <option value="all">All Tags</option>
               {tags.map((tag) => (
@@ -268,7 +240,7 @@ export default function CheckInSystem() {
             <select
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
             >
               <option value="all">All Dates</option>
               {dates.map((date) => (
@@ -341,7 +313,7 @@ export default function CheckInSystem() {
                                 : null
                             )
                           }
-                          className="w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          className="w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -353,7 +325,7 @@ export default function CheckInSystem() {
                               prev ? { ...prev, tag: e.target.value } : null
                             )
                           }
-                          className="w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          className="w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
                         />
                       </td>
                       <td className="px-6 py-4">
@@ -367,7 +339,7 @@ export default function CheckInSystem() {
                                 : null
                             )
                           }
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -379,11 +351,11 @@ export default function CheckInSystem() {
                               prev ? { ...prev, date: e.target.value } : null
                             )
                           }
-                          className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black placeholder-gray-400"
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {checkIn.user}
+                        {checkIn.user?.username}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {checkIn.department}
@@ -421,7 +393,7 @@ export default function CheckInSystem() {
                         {checkIn.date}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {checkIn.user}
+                        {checkIn.user?.username}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {checkIn.department}

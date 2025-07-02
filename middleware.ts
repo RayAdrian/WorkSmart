@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import jwt from "jsonwebtoken";
 
 // Define routes that require authentication
 const protectedRoutes = ["/dashboard", "/checkin", "/documents", "/genai"];
@@ -16,8 +17,17 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/public");
 
-  // Read auth state from cookies (set this on login)
-  const isAuthenticated = Boolean(request.cookies.get("auth")?.value);
+  // Read JWT from cookies
+  const token = request.cookies.get("auth")?.value;
+  let isAuthenticated = false;
+  if (token) {
+    try {
+      jwt.verify(token, process.env.JWT_SECRET!);
+      isAuthenticated = true;
+    } catch {
+      isAuthenticated = false;
+    }
+  }
 
   // Redirect unauthenticated users from protected routes
   if (isProtected && !isAuthenticated) {

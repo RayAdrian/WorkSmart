@@ -12,8 +12,9 @@ import { useRouter } from "next/navigation";
 interface AuthContextType {
   isLoggedIn: boolean;
   username: string | null;
-  login: (username: string) => void;
-  logout: () => void;
+  email: string | null;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,33 +22,60 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-    const storedUsername = localStorage.getItem("username");
-    setIsLoggedIn(loggedIn);
-    setUsername(storedUsername || null);
-  }, []);
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (res.status === 401) {
+          setIsLoggedIn(false);
+          setUsername(null);
+          setEmail(null);
+          router.push("/login");
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data && data.username) {
+          setIsLoggedIn(true);
+          setUsername(data.username);
+          setEmail(data.email || null);
+        }
+      });
+  }, [router]);
 
-  const login = (username: string) => {
-    localStorage.setItem("isLoggedIn", "true");
-    localStorage.setItem("username", username);
-    setIsLoggedIn(true);
-    setUsername(username);
+  const login = async (username: string, password: string) => {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setIsLoggedIn(true);
+      setUsername(data.username);
+      setEmail(data.email || null);
+      router.push("/dashboard");
+    } else {
+      const err = await res.json();
+      throw new Error(err.error || "Login failed");
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("username");
-    document.cookie = "auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
     setIsLoggedIn(false);
     setUsername(null);
+    setEmail(null);
     router.push("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, username, login, logout }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, username, email, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
