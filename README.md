@@ -1,54 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WorkSmart Time Management System
+
+A modern, full-stack time management and productivity dashboard built with Next.js, React, Tailwind CSS, Prisma, and PostgreSQL. Includes check-in, document management, and GenAI-powered features.
+
+---
 
 ## Getting Started
 
-First, run the development server:
+1. **Install dependencies:**
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+2. **Set up your database:**
+   - Ensure PostgreSQL is running locally.
+   - Configure your `.env` with your database URL.
+   - Run Prisma migrations:
+     ```bash
+     npx prisma migrate dev
+     ```
+3. **Run the development server:**
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+4. **Open** [http://localhost:3000](http://localhost:3000) in your browser.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+# Technical Documentation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Architecture Overview
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend:** Next.js (App Router), React, Tailwind CSS
+- **Backend:** Next.js API routes, Prisma ORM, PostgreSQL
+- **Authentication:** Cookie-based JWT, middleware-protected routes
+- **GenAI Features:** Mocked GenAI endpoints for document analysis, suggestions, and natural language search
+- **File Uploads:** Handled via API routes, stored in `/public/uploads`
 
-## Learn More
+### Key Technical Decisions
 
-To learn more about Next.js, take a look at the following resources:
+- **App Directory Routing:** Modular pages for dashboard, check-in, documents, and GenAI features
+- **Prisma ORM:** Type-safe database access and migrations
+- **Middleware Auth:** Secure, scalable route protection using JWT cookies
+- **Component Design:** Reusable, accessible React components for all UI features
+- **Mock GenAI:** Easily swappable for real AI APIs in the future
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Architecture Diagram
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+> _[Add diagram here if available]_
 
-## Deploy on Vercel
+- Dashboard layout with sidebar navigation
+- API routes for check-ins, documents, GenAI
+- Database models: User, CheckIn, Document
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### GenAI Implementation Approach
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Endpoints:** `/api/genai/analyze-document`, `/api/genai/suggest-workflow`, `/api/genai/nls`
+- **Mock Logic:** Simulates document analysis, workflow suggestions, and natural language search
+- **Extensible:** Replace mock logic with real AI APIs as needed
 
-## Technical Documentation
+---
 
-- **Architecture Diagram and Technical Decisions**
-  - _See: `/docs/architecture-diagram.png` and `/docs/technical-decisions.md` (to be provided)_
-- **Mock GenAI Implementation Approach and Details**
-  - _See: `/docs/genai-implementation.md` (to be provided)_
+# Product Documentation
 
-## Product Documentation
+## Product Vision
 
-- **User Guide**
-  - _Includes screenshots and workflow examples. See: `/docs/user-guide.md` (to be provided)_
-- **Product Vision Document**
-  - _A 2-3 page document covering:_
-    - Problem definition and user needs
-    - Solution approach and key features
-    - GenAI feature design and benefits
-  - _See: `/docs/product-vision.md` (to be provided)_
+### Problem Definition & User Needs
+
+- Teams need a unified platform to track work hours, manage documents, and leverage AI for productivity insights.
+- Users want easy check-in/out, document uploads, and actionable suggestions.
+
+### Solution Approach & Key Features
+
+- **Check-In System:** Log work hours, activities, and department
+- **Document Management:** Upload, categorize, and track status of documents
+- **GenAI Features:**
+  - Document analysis (extract key info)
+  - Workflow suggestions (next steps)
+  - Natural language search (ask about documents/check-ins)
+- **Dashboard:** Visualize productivity stats, recent activity, and trends
+- **Authentication:** Secure login/logout, protected routes
+
+### GenAI Feature Design & Benefits
+
+- **Automated Insights:** AI analyzes documents for key data and anomalies
+- **Smart Suggestions:** AI recommends next steps for document workflows
+- **Natural Language Search:** Users can ask questions in plain English
+- **Productivity Boost:** Less manual work, more actionable information
+
+## User Guide
+
+### 1. Login & Authentication
+
+- Go to `/login` and enter your credentials
+- Secure cookie-based session; logout from the dashboard
+
+### 2. Dashboard
+
+- View productivity stats, recent check-ins, and document activity
+- Navigate using the sidebar to Check-In, Documents, or GenAI
+
+### 3. Check-In System
+
+- Log your work hours, activities, and department
+- View and edit your check-in history
+
+### 4. Document Management
+
+- Upload files (purchase orders, quotes, etc.)
+- Assign type and status; link to check-ins if needed
+- Download or update document status
+
+### 5. GenAI Features
+
+- **Analyze Document:** Extracts key info from uploaded files
+- **Suggest Workflow:** Recommends next steps for a document
+- **Natural Language Search:** Ask questions like "Show all approved purchase orders from last month"
+
+---
+
+## Contributing & Extending
+
+- Add new GenAI endpoints by extending `/api/genai/`
+- Add new database models in `prisma/schema.prisma` and run migrations
+- Update UI components in `src/components/`
+
+---
+
+## License
+
+MIT
