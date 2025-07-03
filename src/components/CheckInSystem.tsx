@@ -260,7 +260,7 @@ export default function CheckInSystem() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Time Entry Format:{" "}
               <span className="text-gray-500">
-                &quot;5.5 hrs #project-x fix login issue&quot;
+                &quot;5.5 hrs #projectx fix login issue&quot;
               </span>
             </label>
             <div className="flex gap-3">
