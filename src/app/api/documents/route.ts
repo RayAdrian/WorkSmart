@@ -31,7 +31,8 @@ export async function POST(req: Request) {
   }
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
+  // Use /tmp for uploads (Vercel compatible)
+  const uploadsDir = "/tmp";
   await fs.mkdir(uploadsDir, { recursive: true });
   const fileName = Date.now() + "_" + file.name;
   const filePath = path.join(uploadsDir, fileName);
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
   const document = await prisma.document.create({
     data: {
       userId: user.id,
-      filePath: `/uploads/${fileName}`,
+      filePath: `/tmp/${fileName}`,
       url: null,
       type,
       status,
