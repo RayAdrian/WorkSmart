@@ -30,6 +30,7 @@ export default function CheckInSystem() {
   const [selectedTag, setSelectedTag] = useState("all");
   const [selectedDate, setSelectedDate] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [onlyMyCheckIns, setOnlyMyCheckIns] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,7 +45,8 @@ export default function CheckInSystem() {
   const [nlsActive, setNlsActive] = useState(false);
 
   useEffect(() => {
-    fetch("/api/checkins")
+    const url = onlyMyCheckIns ? "/api/checkins?mine=1" : "/api/checkins";
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -54,7 +56,7 @@ export default function CheckInSystem() {
           console.error("Failed to load check-ins:", data);
         }
       });
-  }, []);
+  }, [onlyMyCheckIns]);
 
   // Smart Categorization: fetch suggested tag as user types
   useEffect(() => {
@@ -355,6 +357,21 @@ export default function CheckInSystem() {
                   {date}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Only My Check-ins Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Only My Check-ins
+            </label>
+            <select
+              value={onlyMyCheckIns ? "true" : "false"}
+              onChange={(e) => setOnlyMyCheckIns(e.target.value === "true")}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-black"
+            >
+              <option value="false">All Check-ins</option>
+              <option value="true">Only My Check-ins</option>
             </select>
           </div>
         </div>
